@@ -1,10 +1,11 @@
 // Shared task types for API, DB layer, and UI.
 
-export const LIST_IDS = ['daily', 'eye', 'weekly', 'monthly'] as const;
+export const LIST_IDS = ['daily', 'once', 'eye', 'weekly', 'monthly'] as const;
 export type ListId = (typeof LIST_IDS)[number];
 
 export const LIST_LABELS: Record<ListId, string> = {
   daily: 'DAILY',
+  once: 'ONE-TIME',
   eye: 'KEEP AN EYE',
   weekly: 'WEEKLY',
   monthly: 'MONTHLY',

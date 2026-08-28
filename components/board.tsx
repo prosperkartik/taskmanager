@@ -119,10 +119,19 @@ export default function Board() {
     };
   }, [load]);
 
-  const spaceTasks = useMemo(() => (tasks ?? []).filter((t) => t.space === space), [tasks, space]);
+  const spaceTasks = useMemo(() => {
+    const today = now ? dailyKey(now) : null;
+    return (tasks ?? []).filter((t) => {
+      if (t.space !== space) return false;
+      // Completed one-time tasks stay visible (struck through) for the rest of
+      // the day they were finished, then sweep themselves off the board.
+      if (t.list === 'once' && t.completed_period !== null && today !== null && t.completed_period < today) return false;
+      return true;
+    });
+  }, [tasks, space, now]);
 
   const byList = useMemo(() => {
-    const map: Record<ListId, Task[]> = { daily: [], eye: [], weekly: [], monthly: [] };
+    const map: Record<ListId, Task[]> = { daily: [], once: [], eye: [], weekly: [], monthly: [] };
     for (const t of spaceTasks) map[t.list]?.push(t);
     for (const list of LIST_IDS) map[list].sort((a, b) => a.position - b.position || a.id - b.id);
     return map;
@@ -396,6 +405,14 @@ export default function Board() {
             </section>
 
             <AddTaskForm onAdd={addTask} />
+
+            <Column
+              list="once"
+              title="ONE-TIME"
+              hint="NO RESET · DONE CLEARS OVERNIGHT"
+              tasks={byList.once}
+              {...columnProps}
+            />
 
             <SchedulePanel tasks={spaceTasks} now={now} onToggle={toggleTask} />
           </main>

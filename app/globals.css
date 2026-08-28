@@ -639,6 +639,7 @@ input { font-family: inherit; }
 }
 
 .tag-daily { background: var(--ink); color: var(--card); }
+.tag-once { background: var(--card); color: var(--red); border-color: var(--red); }
 .tag-eye { background: var(--red); color: var(--card); }
 .tag-weekly { background: var(--gold); }
 .tag-monthly { background: var(--card); }

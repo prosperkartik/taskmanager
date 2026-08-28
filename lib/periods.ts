@@ -35,11 +35,17 @@ export function periodKey(list: ListId, d: Date): string {
   if (list === 'daily') return dailyKey(d);
   if (list === 'weekly') return weeklyKey(d);
   if (list === 'monthly') return monthlyKey(d);
+  // One-time tasks store their completion DATE (so the board can sweep them
+  // away the next day); keep-an-eye items store the fixed key "done".
+  if (list === 'once') return dailyKey(d);
   return 'done';
 }
 
 export function isDone(task: Task, now: Date): boolean {
-  return task.completed_period !== null && task.completed_period === periodKey(task.list, now);
+  if (task.completed_period === null) return false;
+  // A one-time task is done forever, whichever day it was completed on.
+  if (task.list === 'once') return true;
+  return task.completed_period === periodKey(task.list, now);
 }
 
 // "YYYY-MM-DDTHH:mm" for the current local time — comparable to scheduled_at strings.
