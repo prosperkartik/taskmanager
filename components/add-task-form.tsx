@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import type { ListId } from '@/lib/types';
 import { LIST_IDS, LIST_LABELS } from '@/lib/types';
+import DateTimePicker from '@/components/date-time-picker';
 
 interface AddTaskFormProps {
   onAdd: (title: string, list: ListId, scheduledAt: string | null) => void;
@@ -47,13 +48,7 @@ export default function AddTaskForm({ onAdd }: AddTaskFormProps) {
             </button>
           ))}
         </div>
-        <input
-          type="datetime-local"
-          className="dt-input"
-          value={when}
-          onChange={(e) => setWhen(e.target.value)}
-          aria-label="Schedule date and time (optional)"
-        />
+        <DateTimePicker value={when || null} onChange={(v) => setWhen(v ?? '')} />
         <button className="btn-add" type="submit">ADD ★</button>
       </div>
     </form>

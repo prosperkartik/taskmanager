@@ -23,6 +23,7 @@ import confetti from 'canvas-confetti';
 import type { ListId, Task } from '@/lib/types';
 import { LIST_IDS } from '@/lib/types';
 import { dailyKey, formatHeaderDate, isDone, periodKey } from '@/lib/periods';
+import { playAllClear, playComplete } from '@/lib/sounds';
 import AddTaskForm from '@/components/add-task-form';
 import Column from '@/components/column';
 import ProgressBar from '@/components/progress-bar';
@@ -69,6 +70,9 @@ export default function Board() {
   const [error, setError] = useState<string | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [allClearBanner, setAllClearBanner] = useState(false);
+  // ADHD MODE: sound effects on completion. Per-browser preference; localStorage
+  // can throw in private windows, so every access is guarded.
+  const [soundOn, setSoundOn] = useState(true);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -87,6 +91,12 @@ export default function Board() {
   useEffect(() => {
     setNow(new Date());
     void load();
+    try {
+      const stored = localStorage.getItem('tm-sound');
+      if (stored !== null) setSoundOn(stored === '1');
+    } catch {
+      // private window or blocked storage — keep the default
+    }
     // Ticking `now` is what makes daily/weekly/monthly resets kick in while the tab stays open.
     const tick = setInterval(() => setNow(new Date()), 30_000);
     const onFocus = () => {
@@ -137,8 +147,10 @@ export default function Board() {
       setTasks((p) => (p ?? []).map((t) => (t.id === task.id ? { ...t, completed_period: nextPeriod } : t)));
 
       if (!done && at) burstAt(at.x, at.y);
+      if (!done && soundOn) playComplete();
       if (!done && task.list === 'daily' && dailyTotal > 0 && dailyDone + 1 === dailyTotal) {
         bigCelebration();
+        if (soundOn) playAllClear();
         setAllClearBanner(true);
         setTimeout(() => setAllClearBanner(false), 4500);
       }
@@ -151,8 +163,21 @@ export default function Board() {
         setError(String(err));
       }
     },
-    [now, tasks, dailyDone, dailyTotal]
+    [now, tasks, dailyDone, dailyTotal, soundOn]
   );
+
+  const toggleSound = useCallback(() => {
+    setSoundOn((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('tm-sound', next ? '1' : '0');
+      } catch {
+        // storage blocked — toggle still works for this visit
+      }
+      if (next) playComplete(); // audible confirmation that sound is back on
+      return next;
+    });
+  }, []);
 
   const removeTask = useCallback(
     async (task: Task) => {
@@ -293,6 +318,13 @@ export default function Board() {
             <span className="logo-sub">タスク · GET IT DONE</span>
           </div>
           <div className="topbar-right">
+            <button
+              className={`sound-chip ${soundOn ? 'sound-on' : ''}`}
+              onClick={toggleSound}
+              title="Sound effects on task complete"
+            >
+              {soundOn ? '♪ ADHD MODE ON' : '♪ ADHD MODE OFF'}
+            </button>
             <span className="date-chip">{formatHeaderDate(now)}</span>
             <span className={`day-chip ${allDailyDone ? 'day-chip-clear' : ''}`}>
               {allDailyDone ? 'ALL CLEAR ★' : `DAILY ${dailyDone}/${dailyTotal}`}

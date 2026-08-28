@@ -8,6 +8,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '@/lib/types';
 import { formatSchedule, isDone, isOverdue } from '@/lib/periods';
+import DateTimePicker from '@/components/date-time-picker';
 
 interface TaskCardProps {
   task: Task;
@@ -60,23 +61,12 @@ export default function TaskCard({ task, now, overlay, onToggle, onDelete, onSch
         )}
         {editingTime && (
           <div className="time-edit">
-            <input
-              type="datetime-local"
-              defaultValue={task.scheduled_at ?? ''}
-              onChange={(e) => onSchedule(task, e.target.value || null)}
+            <DateTimePicker
+              value={task.scheduled_at}
+              onChange={(v) => onSchedule(task, v)}
+              defaultOpen
+              onDone={() => setEditingTime(false)}
             />
-            <button className="mini-btn" onClick={() => setEditingTime(false)}>OK</button>
-            {task.scheduled_at && (
-              <button
-                className="mini-btn"
-                onClick={() => {
-                  onSchedule(task, null);
-                  setEditingTime(false);
-                }}
-              >
-                CLEAR
-              </button>
-            )}
           </div>
         )}
       </div>
