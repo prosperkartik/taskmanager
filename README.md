@@ -35,9 +35,12 @@ The app is private: it must only be reachable with a Vercel login. On the Hobby
 plan, Vercel Authentication covers **preview** deployments but not production
 domains, so:
 
-- `vercel.json` disables git-triggered deployments (a push never creates a
-  public production deployment).
-- Deploy with `npm run ship` (= `vercel deploy`, a protected preview).
+- `vercel.json` disables git deployments for `main` (a push never creates a
+  public production deployment) and enables them for the `board` branch, which
+  deploys as a **protected preview** with a stable URL:
+  `https://taskmanager-git-board-prosperkartiks-projects.vercel.app`
+- Ship: `git push origin main main:board` (board mirrors main and auto-deploys).
+- `npm run ship` (= `vercel deploy`) also works but gets a fresh URL each time.
 - Never run `vercel --prod` — that would create a publicly reachable production
   domain. If the account is upgraded to Pro, enable Vercel Authentication for
   all deployments in Project Settings → Deployment Protection, then production
