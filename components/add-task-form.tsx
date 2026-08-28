@@ -6,6 +6,7 @@ import { useState } from 'react';
 import type { ListId } from '@/lib/types';
 import { LIST_IDS, LIST_LABELS } from '@/lib/types';
 import DateTimePicker from '@/components/date-time-picker';
+import { playKeyFromEvent } from '@/lib/sounds';
 
 interface AddTaskFormProps {
   onAdd: (title: string, list: ListId, scheduledAt: string | null) => void;
@@ -31,6 +32,7 @@ export default function AddTaskForm({ onAdd }: AddTaskFormProps) {
         className="add-title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={playKeyFromEvent}
         placeholder="TYPE A TASK…"
         aria-label="New task title"
         autoFocus

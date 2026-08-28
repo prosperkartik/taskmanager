@@ -23,7 +23,7 @@ import confetti from 'canvas-confetti';
 import type { ListId, Space, Task } from '@/lib/types';
 import { LIST_IDS } from '@/lib/types';
 import { dailyKey, formatHeaderDate, isDone, periodKey } from '@/lib/periods';
-import { playAllClear, playComplete } from '@/lib/sounds';
+import { playAllClear, playComplete, setKeySoundsEnabled } from '@/lib/sounds';
 import AddTaskForm from '@/components/add-task-form';
 import Clock from '@/components/clock';
 import Column from '@/components/column';
@@ -100,7 +100,10 @@ export default function Board() {
     void load();
     try {
       const stored = localStorage.getItem('tm-sound');
-      if (stored !== null) setSoundOn(stored === '1');
+      if (stored !== null) {
+        setSoundOn(stored === '1');
+        setKeySoundsEnabled(stored === '1');
+      }
     } catch {
       // private window or blocked storage — keep the default
     }
@@ -178,6 +181,7 @@ export default function Board() {
   const toggleSound = useCallback(() => {
     setSoundOn((prev) => {
       const next = !prev;
+      setKeySoundsEnabled(next);
       try {
         localStorage.setItem('tm-sound', next ? '1' : '0');
       } catch {

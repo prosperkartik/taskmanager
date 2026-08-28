@@ -8,6 +8,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { ListId, Task } from '@/lib/types';
 import { isDone } from '@/lib/periods';
+import { playKeyFromEvent } from '@/lib/sounds';
 import ProgressBar from '@/components/progress-bar';
 import TaskCard from '@/components/task-card';
 
@@ -70,6 +71,7 @@ export default function Column({
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={playKeyFromEvent}
           placeholder={`+ ADD TO ${title}`}
           aria-label={`Add task to ${title}`}
         />
