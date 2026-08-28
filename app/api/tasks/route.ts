@@ -2,7 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import { createTask, listTasks } from '@/lib/db';
-import { isListId } from '@/lib/types';
+import { isListId, isSpace } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +17,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  let body: { title?: unknown; list?: unknown; scheduled_at?: unknown };
+  let body: { title?: unknown; list?: unknown; scheduled_at?: unknown; space?: unknown };
   try {
     body = await req.json();
   } catch (err) {
@@ -28,9 +28,10 @@ export async function POST(req: Request) {
   if (!title) return NextResponse.json({ error: 'title is required' }, { status: 400 });
   if (!isListId(body.list)) return NextResponse.json({ error: `invalid list: ${String(body.list)}` }, { status: 400 });
   const scheduledAt = typeof body.scheduled_at === 'string' && body.scheduled_at ? body.scheduled_at : null;
+  const space = isSpace(body.space) ? body.space : 'work';
 
   try {
-    const task = await createTask(title, body.list, scheduledAt);
+    const task = await createTask(title, body.list, scheduledAt, space);
     return NextResponse.json({ task }, { status: 201 });
   } catch (err) {
     console.error('[api/tasks POST]', { title, list: body.list }, err);

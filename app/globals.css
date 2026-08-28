@@ -53,7 +53,23 @@ input { font-family: inherit; }
 
 /* ---------- shell / topbar ---------- */
 
-.shell { height: 100vh; display: flex; flex-direction: column; }
+.shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  background-image: radial-gradient(rgba(22, 19, 15, 0.05) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* Secret personal board: same layout, purple accent + lavender paper. */
+.theme-personal {
+  --red: #6d28d9;
+  --red-dark: #4c1d95;
+  --paper: #efeaf7;
+  --panel: #f7f4fc;
+  --card: #fdfcff;
+}
 
 .topbar {
   display: flex;
@@ -112,6 +128,24 @@ input { font-family: inherit; }
 .sound-chip:hover { transform: skew(-6deg) translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
 
 .sound-on { background: var(--gold); color: var(--ink); }
+
+/* the secret eye: nearly invisible until hovered; lit up on the personal board */
+.space-eye {
+  border: none;
+  background: none;
+  padding: 4px 6px;
+  color: var(--ink);
+  opacity: 0.22;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.space-eye:hover { opacity: 1; transform: scale(1.18); }
+
+.theme-personal .space-eye { opacity: 1; color: var(--red); }
+
+.clock-chip { font-variant-numeric: tabular-nums; min-width: 258px; text-align: center; }
 
 .day-chip-clear { background: var(--red); animation: pulse 1.6s ease-in-out infinite; }
 

@@ -10,10 +10,21 @@ export const LIST_LABELS: Record<ListId, string> = {
   monthly: 'MONTHLY',
 };
 
+// Two fully separate boards behind one UI: the default work board and the
+// "secret" personal board (eye icon in the topbar). Not persisted across
+// refreshes on purpose — the app always opens on work.
+export const SPACES = ['work', 'personal'] as const;
+export type Space = (typeof SPACES)[number];
+
+export function isSpace(value: unknown): value is Space {
+  return typeof value === 'string' && (SPACES as readonly string[]).includes(value);
+}
+
 export interface Task {
   id: number;
   title: string;
   list: ListId;
+  space: Space;
   position: number;
   // Local naive datetime "YYYY-MM-DDTHH:mm" straight from <input type="datetime-local">.
   // Stored as text on purpose: the board is single-user, so "local time" is unambiguous.

@@ -9,6 +9,11 @@ ADHD-friendly task board in Komi-Store neo-brutalist style. Big screen only (110
 
 Drag tasks between lists, confetti on completion, quick-add at the bottom of every column.
 
+Extras: live EST clock in the header; ADHD MODE chip toggles completion sounds
+(Web Audio, preference in localStorage); the faint eye icon in the topbar
+switches to a fully separate purple **personal** board (`space` column in the
+DB) — a refresh always reopens the work board.
+
 ## How resets work
 
 No cron. A completed task stores the period key it was completed in

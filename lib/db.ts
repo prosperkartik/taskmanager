@@ -3,7 +3,7 @@
 // stores strings. Uses the Neon HTTP driver — no connection pooling to manage.
 
 import { neon } from '@neondatabase/serverless';
-import type { ListId, Task } from './types';
+import type { ListId, Space, Task } from './types';
 
 const DB_URL = process.env.POSTGRES_URL ?? process.env.DATABASE_URL ?? '';
 
@@ -29,16 +29,19 @@ async function ensureSchema(): Promise<void> {
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
       list TEXT NOT NULL,
+      space TEXT NOT NULL DEFAULT 'work',
       position INTEGER NOT NULL DEFAULT 0,
       scheduled_at TEXT,
       completed_period TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Migration for rows created before the personal board existed.
+  await query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS space TEXT NOT NULL DEFAULT 'work'`);
   ensured = true;
 }
 
-const TASK_COLUMNS = 'id, title, list, position, scheduled_at, completed_period';
+const TASK_COLUMNS = 'id, title, list, space, position, scheduled_at, completed_period';
 
 export async function listTasks(): Promise<Task[]> {
   await ensureSchema();
@@ -46,13 +49,13 @@ export async function listTasks(): Promise<Task[]> {
   return rows as unknown as Task[];
 }
 
-export async function createTask(title: string, list: ListId, scheduledAt: string | null): Promise<Task> {
+export async function createTask(title: string, list: ListId, scheduledAt: string | null, space: Space): Promise<Task> {
   await ensureSchema();
   const rows = await query(
-    `INSERT INTO tasks (title, list, position, scheduled_at)
-     VALUES ($1, $2, COALESCE((SELECT MAX(position) + 1 FROM tasks WHERE list = $2), 0), $3)
+    `INSERT INTO tasks (title, list, position, scheduled_at, space)
+     VALUES ($1, $2, COALESCE((SELECT MAX(position) + 1 FROM tasks WHERE list = $2 AND space = $4), 0), $3, $4)
      RETURNING ${TASK_COLUMNS}`,
-    [title, list, scheduledAt]
+    [title, list, scheduledAt, space]
   );
   if (!rows[0]) throw new Error(`db.createTask: insert returned no row (title=${JSON.stringify(title)})`);
   return rows[0] as unknown as Task;

@@ -20,17 +20,21 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import confetti from 'canvas-confetti';
-import type { ListId, Task } from '@/lib/types';
+import type { ListId, Space, Task } from '@/lib/types';
 import { LIST_IDS } from '@/lib/types';
 import { dailyKey, formatHeaderDate, isDone, periodKey } from '@/lib/periods';
 import { playAllClear, playComplete } from '@/lib/sounds';
 import AddTaskForm from '@/components/add-task-form';
+import Clock from '@/components/clock';
 import Column from '@/components/column';
 import ProgressBar from '@/components/progress-bar';
 import SchedulePanel from '@/components/schedule-panel';
 import TaskCard from '@/components/task-card';
 
-const BRAND_COLORS = ['#d5232b', '#151310', '#e8b425', '#faf7ec'];
+const PALETTES: Record<Space, string[]> = {
+  work: ['#d5232b', '#151310', '#e8b425', '#faf7ec'],
+  personal: ['#6d28d9', '#151310', '#e8b425', '#faf7ec'],
+};
 
 async function api<T>(path: string, method: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
@@ -45,20 +49,20 @@ async function api<T>(path: string, method: string, body?: unknown): Promise<T> 
   return res.json() as Promise<T>;
 }
 
-function burstAt(x: number, y: number) {
+function burstAt(x: number, y: number, colors: string[]) {
   confetti({
     particleCount: 70,
     spread: 70,
     startVelocity: 28,
     scalar: 0.9,
     origin: { x: x / window.innerWidth, y: y / window.innerHeight },
-    colors: BRAND_COLORS,
+    colors,
     disableForReducedMotion: true,
   });
 }
 
-function bigCelebration() {
-  const opts = { colors: BRAND_COLORS, disableForReducedMotion: true };
+function bigCelebration(colors: string[]) {
+  const opts = { colors, disableForReducedMotion: true };
   confetti({ ...opts, particleCount: 140, spread: 100, origin: { x: 0.5, y: 0.6 } });
   setTimeout(() => confetti({ ...opts, particleCount: 90, angle: 60, spread: 70, origin: { x: 0, y: 1 } }), 180);
   setTimeout(() => confetti({ ...opts, particleCount: 90, angle: 120, spread: 70, origin: { x: 1, y: 1 } }), 360);
@@ -73,6 +77,9 @@ export default function Board() {
   // ADHD MODE: sound effects on completion. Per-browser preference; localStorage
   // can throw in private windows, so every access is guarded.
   const [soundOn, setSoundOn] = useState(true);
+  // Secret second board (eye icon). Deliberately NOT persisted: a refresh
+  // always lands on the work board.
+  const [space, setSpace] = useState<Space>('work');
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -109,12 +116,14 @@ export default function Board() {
     };
   }, [load]);
 
+  const spaceTasks = useMemo(() => (tasks ?? []).filter((t) => t.space === space), [tasks, space]);
+
   const byList = useMemo(() => {
     const map: Record<ListId, Task[]> = { daily: [], eye: [], weekly: [], monthly: [] };
-    for (const t of tasks ?? []) map[t.list]?.push(t);
+    for (const t of spaceTasks) map[t.list]?.push(t);
     for (const list of LIST_IDS) map[list].sort((a, b) => a.position - b.position || a.id - b.id);
     return map;
-  }, [tasks]);
+  }, [spaceTasks]);
 
   const dailyDone = now ? byList.daily.filter((t) => isDone(t, now)).length : 0;
   const dailyTotal = byList.daily.length;
@@ -124,10 +133,10 @@ export default function Board() {
     async (title: string, list: ListId, scheduledAt: string | null) => {
       const tempId = -Math.floor(Math.random() * 1_000_000) - 1;
       const maxPos = Math.max(-1, ...byList[list].map((t) => t.position));
-      const temp: Task = { id: tempId, title, list, position: maxPos + 1, scheduled_at: scheduledAt, completed_period: null };
+      const temp: Task = { id: tempId, title, list, space, position: maxPos + 1, scheduled_at: scheduledAt, completed_period: null };
       setTasks((prev) => [...(prev ?? []), temp]);
       try {
-        const data = await api<{ task: Task }>('/api/tasks', 'POST', { title, list, scheduled_at: scheduledAt });
+        const data = await api<{ task: Task }>('/api/tasks', 'POST', { title, list, scheduled_at: scheduledAt, space });
         setTasks((prev) => (prev ?? []).map((t) => (t.id === tempId ? data.task : t)));
       } catch (err) {
         console.error('[board.addTask]', { title, list }, err);
@@ -135,7 +144,7 @@ export default function Board() {
         setError(String(err));
       }
     },
-    [byList]
+    [byList, space]
   );
 
   const toggleTask = useCallback(
@@ -146,10 +155,10 @@ export default function Board() {
       const prev = tasks;
       setTasks((p) => (p ?? []).map((t) => (t.id === task.id ? { ...t, completed_period: nextPeriod } : t)));
 
-      if (!done && at) burstAt(at.x, at.y);
+      if (!done && at) burstAt(at.x, at.y, PALETTES[space]);
       if (!done && soundOn) playComplete();
       if (!done && task.list === 'daily' && dailyTotal > 0 && dailyDone + 1 === dailyTotal) {
-        bigCelebration();
+        bigCelebration(PALETTES[space]);
         if (soundOn) playAllClear();
         setAllClearBanner(true);
         setTimeout(() => setAllClearBanner(false), 4500);
@@ -163,7 +172,7 @@ export default function Board() {
         setError(String(err));
       }
     },
-    [now, tasks, dailyDone, dailyTotal, soundOn]
+    [now, tasks, dailyDone, dailyTotal, soundOn, space]
   );
 
   const toggleSound = useCallback(() => {
@@ -235,7 +244,10 @@ export default function Board() {
     // placement happens in onDragEnd.
     setTasks((p) => {
       const rest = p ?? [];
-      const maxPos = Math.max(-1, ...rest.filter((t) => t.list === overList).map((t) => t.position));
+      const maxPos = Math.max(
+        -1,
+        ...rest.filter((t) => t.list === overList && t.space === dragged.space).map((t) => t.position)
+      );
       return rest.map((t) => (t.id === dragged.id ? { ...t, list: overList, position: maxPos + 1 } : t));
     });
   };
@@ -265,18 +277,19 @@ export default function Board() {
         }
       }
 
-      // Renumber every list 0..n and persist the whole (small) board.
+      // Renumber the active space's lists 0..n and persist them (drags only
+      // ever happen inside the visible space; the hidden one is untouched).
       const renumbered = [...next];
       for (const list of LIST_IDS) {
         renumbered
-          .filter((t) => t.list === list)
+          .filter((t) => t.list === list && t.space === space)
           .sort((a, b) => a.position - b.position || a.id - b.id)
           .forEach((t, i) => {
             t.position = i;
           });
       }
       const updates = renumbered
-        .filter((t) => t.id > 0)
+        .filter((t) => t.id > 0 && t.space === space)
         .map((t) => ({ id: t.id, list: t.list, position: t.position }));
       if (updates.length > 0) {
         api('/api/reorder', 'POST', { updates }).catch((err) => {
@@ -310,14 +323,24 @@ export default function Board() {
       onDragEnd={onDragEnd}
       onDragCancel={() => setActiveTask(null)}
     >
-      <div className="shell">
+      <div className={`shell ${space === 'personal' ? 'theme-personal' : ''}`}>
         <header className="topbar">
           <div className="logo">
             <span className="logo-red">TASK</span>
             <span className="logo-black">MANAGER</span>
-            <span className="logo-sub">タスク · GET IT DONE</span>
+            <span className="logo-sub">{space === 'work' ? 'タスク · GET IT DONE' : 'ひみつ · PERSONAL BOARD'}</span>
           </div>
           <div className="topbar-right">
+            <button
+              className="space-eye"
+              onClick={() => setSpace((s) => (s === 'work' ? 'personal' : 'work'))}
+              aria-label="Switch board"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                <circle cx="12" cy="12" r="3" fill="currentColor" />
+              </svg>
+            </button>
             <button
               className={`sound-chip ${soundOn ? 'sound-on' : ''}`}
               onClick={toggleSound}
@@ -325,7 +348,7 @@ export default function Board() {
             >
               {soundOn ? '♪ ADHD MODE ON' : '♪ ADHD MODE OFF'}
             </button>
-            <span className="date-chip">{formatHeaderDate(now)}</span>
+            <Clock />
             <span className={`day-chip ${allDailyDone ? 'day-chip-clear' : ''}`}>
               {allDailyDone ? 'ALL CLEAR ★' : `DAILY ${dailyDone}/${dailyTotal}`}
             </span>
@@ -370,7 +393,7 @@ export default function Board() {
 
             <AddTaskForm onAdd={addTask} />
 
-            <SchedulePanel tasks={tasks} now={now} onToggle={toggleTask} />
+            <SchedulePanel tasks={spaceTasks} now={now} onToggle={toggleTask} />
           </main>
 
           <aside className="col side">
