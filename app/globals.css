@@ -313,7 +313,7 @@ input { font-family: inherit; }
 
 .time-edit { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
 
-.task-actions { display: flex; flex-direction: column; gap: 4px; opacity: 0; transition: opacity 0.15s ease; }
+.task-actions { display: flex; flex-direction: row; gap: 4px; opacity: 0; transition: opacity 0.15s ease; }
 
 .task:hover .task-actions { opacity: 1; }
 
