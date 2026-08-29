@@ -95,6 +95,14 @@ export function playComplete(): void {
   tone(ac, 990, t + 0.07, 0.2, 'triangle', 0.16);
 }
 
+// Three-note rise — cleared a whole list (one-time / eye / weekly / monthly).
+export function playListClear(): void {
+  const ac = audio();
+  if (!ac) return;
+  const t = ac.currentTime;
+  [659, 784, 1047].forEach((f, i) => tone(ac, f, t + i * 0.08, 0.22, 'triangle', 0.15));
+}
+
 // Short fanfare arpeggio — all dailies done.
 export function playAllClear(): void {
   const ac = audio();

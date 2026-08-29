@@ -20,7 +20,6 @@ interface ColumnProps {
   now: Date;
   grow?: boolean;
   highlight?: boolean;
-  stamped?: boolean;
   onToggle: (task: Task, at?: { x: number; y: number }) => void;
   onDelete: (task: Task) => void;
   onSchedule: (task: Task, value: string | null) => void;
@@ -28,12 +27,13 @@ interface ColumnProps {
 }
 
 export default function Column({
-  list, title, hint, tasks, now, grow, highlight, stamped, onToggle, onDelete, onSchedule, onAdd,
+  list, title, hint, tasks, now, grow, highlight, onToggle, onDelete, onSchedule, onAdd,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: `col-${list}` });
   const [draft, setDraft] = useState('');
 
   const done = tasks.filter((t) => isDone(t, now)).length;
+  const allDone = tasks.length > 0 && done === tasks.length;
 
   const submitDraft = () => {
     const title = draft.trim();
@@ -53,7 +53,7 @@ export default function Column({
 
       <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className="col-body">
-          {stamped && <div className="clear-stamp">ALL CLEAR ★</div>}
+          {allDone && <div className="clear-stamp">ALL CLEAR ★</div>}
           {tasks.map((t) => (
             <TaskCard key={t.id} task={t} now={now} onToggle={onToggle} onDelete={onDelete} onSchedule={onSchedule} />
           ))}

@@ -23,7 +23,7 @@ import confetti from 'canvas-confetti';
 import type { ListId, Space, Task } from '@/lib/types';
 import { LIST_IDS } from '@/lib/types';
 import { dailyKey, formatHeaderDate, isDone, periodKey } from '@/lib/periods';
-import { playAllClear, playComplete, setKeySoundsEnabled } from '@/lib/sounds';
+import { playAllClear, playComplete, playListClear, setKeySoundsEnabled } from '@/lib/sounds';
 import AddTaskForm from '@/components/add-task-form';
 import Clock from '@/components/clock';
 import Column from '@/components/column';
@@ -34,6 +34,15 @@ import TaskCard from '@/components/task-card';
 const PALETTES: Record<Space, string[]> = {
   work: ['#d5232b', '#151310', '#e8b425', '#faf7ec'],
   personal: ['#6d28d9', '#151310', '#e8b425', '#faf7ec'],
+};
+
+// Banner shown when the LAST task of a list gets completed.
+const CLEAR_BANNERS: Record<ListId, string> = {
+  daily: 'ALL DAILIES DONE ★ EYES ON THE SPECIALS',
+  once: 'ONE-TIMERS SWEPT ★ CLEAN SLATE',
+  eye: 'SPECIALS CLEARED ★ NOTHING TO WATCH',
+  weekly: 'WEEK CRUSHED ★ ALL WEEKLY DONE',
+  monthly: 'MONTH CONQUERED ★ ALL MONTHLY DONE',
 };
 
 async function api<T>(path: string, method: string, body?: unknown): Promise<T> {
@@ -68,12 +77,19 @@ function bigCelebration(colors: string[]) {
   setTimeout(() => confetti({ ...opts, particleCount: 90, angle: 120, spread: 70, origin: { x: 1, y: 1 } }), 360);
 }
 
+// A notch below the daily celebration — for clearing any other list.
+function mediumCelebration(colors: string[]) {
+  const opts = { colors, disableForReducedMotion: true };
+  confetti({ ...opts, particleCount: 110, spread: 90, origin: { x: 0.5, y: 0.55 } });
+  setTimeout(() => confetti({ ...opts, particleCount: 60, spread: 75, angle: 90, origin: { x: 0.5, y: 1 } }), 200);
+}
+
 export default function Board() {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [now, setNow] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [allClearBanner, setAllClearBanner] = useState(false);
+  const [banner, setBanner] = useState<string | null>(null);
   // ADHD MODE: sound effects on completion. Per-browser preference; localStorage
   // can throw in private windows, so every access is guarded.
   const [soundOn, setSoundOn] = useState(true);
@@ -169,11 +185,19 @@ export default function Board() {
 
       if (!done && at) burstAt(at.x, at.y, PALETTES[space]);
       if (!done && soundOn) playComplete();
-      if (!done && task.list === 'daily' && dailyTotal > 0 && dailyDone + 1 === dailyTotal) {
-        bigCelebration(PALETTES[space]);
-        if (soundOn) playAllClear();
-        setAllClearBanner(true);
-        setTimeout(() => setAllClearBanner(false), 4500);
+      // Clearing a whole list is always a moment — dailies get the biggest one.
+      const listAll = byList[task.list];
+      const listDoneCount = listAll.filter((t) => isDone(t, now)).length;
+      if (!done && listAll.length > 0 && listDoneCount + 1 === listAll.length) {
+        if (task.list === 'daily') {
+          bigCelebration(PALETTES[space]);
+          if (soundOn) playAllClear();
+        } else {
+          mediumCelebration(PALETTES[space]);
+          if (soundOn) playListClear();
+        }
+        setBanner(CLEAR_BANNERS[task.list]);
+        setTimeout(() => setBanner(null), 4500);
       }
 
       try {
@@ -184,7 +208,7 @@ export default function Board() {
         setError(String(err));
       }
     },
-    [now, tasks, dailyDone, dailyTotal, soundOn, space]
+    [now, tasks, byList, soundOn, space]
   );
 
   const toggleSound = useCallback(() => {
@@ -376,7 +400,6 @@ export default function Board() {
               hint={`RESETS AT MIDNIGHT · ${dailyKey(now)}`}
               tasks={byList.daily}
               grow
-              stamped={allDailyDone}
               {...columnProps}
             />
             <Column
@@ -437,11 +460,7 @@ export default function Board() {
           </aside>
         </div>
 
-        {allClearBanner && (
-          <div className="all-clear-banner">
-            ALL DAILIES DONE ★ EYES ON THE SPECIALS
-          </div>
-        )}
+        {banner && <div className="all-clear-banner">{banner}</div>}
 
         {error && (
           <div className="error-toast" role="alert">
