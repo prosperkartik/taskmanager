@@ -20,6 +20,8 @@ interface ColumnProps {
   now: Date;
   grow?: boolean;
   highlight?: boolean;
+  // Opens the completed-tasks LOG drawer (one-time / keep-an-eye columns only).
+  onLog?: () => void;
   onToggle: (task: Task, at?: { x: number; y: number }) => void;
   onDelete: (task: Task) => void;
   onSchedule: (task: Task, value: string | null) => void;
@@ -27,7 +29,7 @@ interface ColumnProps {
 }
 
 export default function Column({
-  list, title, hint, tasks, now, grow, highlight, onToggle, onDelete, onSchedule, onAdd,
+  list, title, hint, tasks, now, grow, highlight, onLog, onToggle, onDelete, onSchedule, onAdd,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: `col-${list}` });
   const [draft, setDraft] = useState('');
@@ -46,7 +48,10 @@ export default function Column({
     <section className={`panel column ${grow ? 'grow' : ''} ${highlight ? 'eye-hot' : ''} ${isOver ? 'drop-target' : ''}`}>
       <header className="col-head">
         <h2>{title}</h2>
-        <span className="count-chip">{done}/{tasks.length}</span>
+        <span className="col-head-right">
+          {onLog && <button className="log-btn" onClick={onLog} title="Completed-tasks log">LOG</button>}
+          <span className="count-chip">{done}/{tasks.length}</span>
+        </span>
       </header>
       <div className="col-hint">{hint}</div>
       {tasks.length > 0 && <ProgressBar done={done} total={tasks.length} />}

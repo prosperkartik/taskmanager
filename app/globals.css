@@ -203,6 +203,21 @@ input { font-family: inherit; }
 
 .col-hint { font-size: 10px; font-weight: 500; letter-spacing: 1.5px; color: var(--muted); margin: 3px 0 8px; }
 
+.col-head-right { display: flex; align-items: center; gap: 6px; }
+
+.log-btn {
+  font-family: var(--head);
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border: 1.5px solid var(--ink);
+  background: var(--card);
+  color: var(--muted);
+  transform: skew(-6deg);
+}
+
+.log-btn:hover { background: var(--ink); color: var(--card); }
+
 .col-body { flex: 1 1 auto; min-height: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px; }
 
 .drop-target { outline: 3px dashed var(--red); outline-offset: 3px; }
@@ -684,6 +699,60 @@ input { font-family: inherit; }
 }
 
 .error-toast button { background: none; border: none; color: var(--card); font-size: 14px; }
+
+/* ---------- LOG drawer ---------- */
+
+.hist-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  background: rgba(22, 19, 15, 0.35);
+}
+
+.hist-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 400px;
+  background: var(--panel);
+  border-left: 3px solid var(--ink);
+  box-shadow: -6px 0 0 rgba(22, 19, 15, 0.25);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  animation: hist-in 0.2s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+@keyframes hist-in { from { transform: translateX(60px); opacity: 0; } }
+
+.hist-body { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding: 2px; }
+
+.hist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: var(--line);
+  border-radius: 6px;
+  box-shadow: 2px 2px 0 var(--ink);
+  padding: 7px 10px;
+  margin-top: 7px;
+}
+
+.hist-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--red);
+  text-decoration-thickness: 2px;
+  overflow-wrap: break-word;
+}
+
+.hist-row .time-chip { margin: 0; flex: 0 0 auto; }
 
 /* ---------- big screen only ---------- */
 

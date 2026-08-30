@@ -22,11 +22,12 @@ import { arrayMove } from '@dnd-kit/sortable';
 import confetti from 'canvas-confetti';
 import type { ListId, Space, Task } from '@/lib/types';
 import { LIST_IDS } from '@/lib/types';
-import { dailyKey, formatHeaderDate, isDone, periodKey } from '@/lib/periods';
+import { dailyKey, formatHeaderDate, isDone, localInputValue, periodKey } from '@/lib/periods';
 import { playAllClear, playComplete, playListClear, setKeySoundsEnabled } from '@/lib/sounds';
 import AddTaskForm from '@/components/add-task-form';
 import Clock from '@/components/clock';
 import Column from '@/components/column';
+import HistoryDrawer from '@/components/history-drawer';
 import ProgressBar from '@/components/progress-bar';
 import SchedulePanel from '@/components/schedule-panel';
 import TaskCard from '@/components/task-card';
@@ -90,6 +91,7 @@ export default function Board() {
   const [error, setError] = useState<string | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // ADHD MODE: sound effects on completion. Per-browser preference; localStorage
   // can throw in private windows, so every access is guarded.
   const [soundOn, setSoundOn] = useState(true);
@@ -136,14 +138,29 @@ export default function Board() {
   }, [load]);
 
   const spaceTasks = useMemo(() => {
-    const today = now ? dailyKey(now) : null;
-    return (tasks ?? []).filter((t) => {
-      if (t.space !== space) return false;
-      // Completed one-time tasks stay visible (struck through) for the rest of
-      // the day they were finished, then sweep themselves off the board.
-      if (t.list === 'once' && t.completed_period !== null && today !== null && t.completed_period < today) return false;
-      return true;
-    });
+    const mine = (tasks ?? []).filter((t) => t.space === space);
+    if (!now) return mine;
+    // Completed one-time / keep-an-eye tasks: at most the 2 most recent stay on
+    // the board, and only for 24h after completion — everything else lives in
+    // the LOG drawer. Legacy "done" values (pre-timestamp) go straight to the log.
+    const cutoff = localInputValue(new Date(now.getTime() - 24 * 3600 * 1000));
+    const hidden = new Set<number>();
+    for (const list of ['once', 'eye'] as const) {
+      const timed = mine
+        .filter((t) => t.list === list && t.completed_period !== null)
+        .filter((t) => {
+          if (t.completed_period === 'done') {
+            hidden.add(t.id);
+            return false;
+          }
+          return true;
+        })
+        .sort((a, b) => b.completed_period!.localeCompare(a.completed_period!));
+      timed.forEach((t, i) => {
+        if (i >= 2 || t.completed_period! < cutoff) hidden.add(t.id);
+      });
+    }
+    return mine.filter((t) => !hidden.has(t.id));
   }, [tasks, space, now]);
 
   const byList = useMemo(() => {
@@ -405,9 +422,10 @@ export default function Board() {
             <Column
               list="eye"
               title="KEEP AN EYE"
-              hint="SPECIALS · NO RESET"
+              hint="SPECIALS · DONE MOVES TO LOG"
               tasks={byList.eye}
               highlight={allDailyDone}
+              onLog={() => setHistoryOpen(true)}
               {...columnProps}
             />
           </aside>
@@ -432,8 +450,9 @@ export default function Board() {
             <Column
               list="once"
               title="ONE-TIME"
-              hint="NO RESET · DONE CLEARS OVERNIGHT"
+              hint="NO RESET · DONE HIDES AFTER 24H"
               tasks={byList.once}
+              onLog={() => setHistoryOpen(true)}
               {...columnProps}
             />
 
@@ -461,6 +480,15 @@ export default function Board() {
         </div>
 
         {banner && <div className="all-clear-banner">{banner}</div>}
+
+        {historyOpen && (
+          <HistoryDrawer
+            tasks={(tasks ?? []).filter((t) => t.space === space)}
+            now={now}
+            onRestore={(t) => void toggleTask(t)}
+            onClose={() => setHistoryOpen(false)}
+          />
+        )}
 
         {error && (
           <div className="error-toast" role="alert">

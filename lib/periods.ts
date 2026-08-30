@@ -35,16 +35,17 @@ export function periodKey(list: ListId, d: Date): string {
   if (list === 'daily') return dailyKey(d);
   if (list === 'weekly') return weeklyKey(d);
   if (list === 'monthly') return monthlyKey(d);
-  // One-time tasks store their completion DATE (so the board can sweep them
-  // away the next day); keep-an-eye items store the fixed key "done".
-  if (list === 'once') return dailyKey(d);
-  return 'done';
+  // One-time and keep-an-eye items store their completion DATETIME: the board
+  // hides them 24h later and the LOG drawer shows when they were finished.
+  // (Legacy eye completions stored the fixed string "done" — treated as done,
+  // swept straight to the log.)
+  return localInputValue(d);
 }
 
 export function isDone(task: Task, now: Date): boolean {
   if (task.completed_period === null) return false;
-  // A one-time task is done forever, whichever day it was completed on.
-  if (task.list === 'once') return true;
+  // One-time / keep-an-eye: done forever, whenever it happened.
+  if (task.list === 'once' || task.list === 'eye') return true;
   return task.completed_period === periodKey(task.list, now);
 }
 
@@ -60,13 +61,15 @@ export function formatHeaderDate(d: Date): string {
   return `${DAYS[d.getDay()]} · ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
-// Compact chip label for a scheduled_at string: "14:30" today, "AUG 30 · 14:30" otherwise.
+// Compact chip label for a local datetime string: "14:30" today, "AUG 30 · 14:30"
+// otherwise. Date-only values (legacy completion records) become "TODAY" / "AUG 30".
 export function formatSchedule(scheduledAt: string, now: Date): string {
   const [datePart, timePart] = scheduledAt.split('T');
-  if (!datePart || !timePart) return scheduledAt;
-  if (datePart === dailyKey(now)) return timePart;
+  if (!datePart) return scheduledAt;
   const [, m, day] = datePart.split('-').map(Number);
   const month = m >= 1 && m <= 12 ? MONTHS[m - 1] : '?';
+  if (!timePart) return datePart === dailyKey(now) ? 'TODAY' : `${month} ${day}`;
+  if (datePart === dailyKey(now)) return timePart;
   return `${month} ${day} · ${timePart}`;
 }
 
