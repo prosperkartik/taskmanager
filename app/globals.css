@@ -754,6 +754,10 @@ input { font-family: inherit; }
 
 .hist-row .time-chip { margin: 0; flex: 0 0 auto; }
 
+.hist-plain { text-decoration: none; color: var(--ink); }
+
+.hist-last { flex: 0 0 auto; font-size: 9px; font-weight: 700; letter-spacing: 1px; color: var(--muted); }
+
 /* ---------- big screen only ---------- */
 
 .small-screen-gate { display: none; }

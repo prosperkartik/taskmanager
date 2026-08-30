@@ -1,15 +1,15 @@
 // GET /api/tasks — list all tasks. POST /api/tasks — create one.
 
 import { NextResponse } from 'next/server';
-import { createTask, listTasks } from '@/lib/db';
+import { completionStats, createTask, listTasks } from '@/lib/db';
 import { isListId, isSpace } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const tasks = await listTasks();
-    return NextResponse.json({ tasks });
+    const [tasks, stats] = await Promise.all([listTasks(), completionStats()]);
+    return NextResponse.json({ tasks, stats });
   } catch (err) {
     console.error('[api/tasks GET]', err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

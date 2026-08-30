@@ -92,6 +92,8 @@ export default function Board() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Per-task completion history: how many times it was ever done + last period.
+  const [stats, setStats] = useState<Record<number, { count: number; last: string }>>({});
   // ADHD MODE: sound effects on completion. Per-browser preference; localStorage
   // can throw in private windows, so every access is guarded.
   const [soundOn, setSoundOn] = useState(true);
@@ -103,8 +105,12 @@ export default function Board() {
 
   const load = useCallback(async () => {
     try {
-      const data = await api<{ tasks: Task[] }>('/api/tasks', 'GET');
+      const data = await api<{ tasks: Task[]; stats?: Array<{ task_id: number; count: number; last_period: string }> }>(
+        '/api/tasks',
+        'GET'
+      );
       setTasks(data.tasks);
+      setStats(Object.fromEntries((data.stats ?? []).map((s) => [s.task_id, { count: s.count, last: s.last_period }])));
       setError(null);
     } catch (err) {
       console.error('[board.load]', err);
@@ -199,6 +205,18 @@ export default function Board() {
       const nextPeriod = done ? null : periodKey(task.list, now);
       const prev = tasks;
       setTasks((p) => (p ?? []).map((t) => (t.id === task.id ? { ...t, completed_period: nextPeriod } : t)));
+      // Mirror the server-side completion history optimistically.
+      setStats((p) => {
+        const cur = p[task.id];
+        if (done) {
+          if (!cur || cur.count <= 1) {
+            const { [task.id]: _removed, ...rest } = p;
+            return rest;
+          }
+          return { ...p, [task.id]: { ...cur, count: cur.count - 1 } };
+        }
+        return { ...p, [task.id]: { count: (cur?.count ?? 0) + 1, last: nextPeriod! } };
+      });
 
       if (!done && at) burstAt(at.x, at.y, PALETTES[space]);
       if (!done && soundOn) playComplete();
@@ -466,6 +484,7 @@ export default function Board() {
               hint="RESETS MONDAY"
               tasks={byList.weekly}
               grow
+              onLog={() => setHistoryOpen(true)}
               {...columnProps}
             />
             <Column
@@ -474,6 +493,7 @@ export default function Board() {
               hint="RESETS ON THE 1ST"
               tasks={byList.monthly}
               grow
+              onLog={() => setHistoryOpen(true)}
               {...columnProps}
             />
           </aside>
@@ -484,6 +504,7 @@ export default function Board() {
         {historyOpen && (
           <HistoryDrawer
             tasks={(tasks ?? []).filter((t) => t.space === space)}
+            stats={stats}
             now={now}
             onRestore={(t) => void toggleTask(t)}
             onClose={() => setHistoryOpen(false)}

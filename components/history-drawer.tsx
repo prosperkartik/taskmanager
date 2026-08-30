@@ -1,13 +1,19 @@
 'use client';
 
-// LOG drawer: every completed one-time and keep-an-eye task of the current
-// board (visible or already swept off), newest first, with one-click restore.
+// LOG drawer for the current board:
+// - ONE-TIME / KEEP AN EYE: every completed task (visible or swept), newest
+//   first, with one-click restore.
+// - WEEKLY / MONTHLY: recurring tasks with how many times they were ever
+//   completed and the last period ("✔ 3× · LAST W35").
 
 import type { Task } from '@/lib/types';
-import { formatSchedule } from '@/lib/periods';
+import { formatSchedule, periodLabel } from '@/lib/periods';
+
+export type CompletionStats = Record<number, { count: number; last: string }>;
 
 interface HistoryDrawerProps {
   tasks: Task[];
+  stats: CompletionStats;
   now: Date;
   onRestore: (task: Task) => void;
   onClose: () => void;
@@ -25,12 +31,20 @@ function completedFor(tasks: Task[], list: 'once' | 'eye'): Task[] {
     });
 }
 
-export default function HistoryDrawer({ tasks, now, onRestore, onClose }: HistoryDrawerProps) {
-  const sections: Array<[string, Task[]]> = [
+export default function HistoryDrawer({ tasks, stats, now, onRestore, onClose }: HistoryDrawerProps) {
+  const oneOffSections: Array<[string, Task[]]> = [
     ['ONE-TIME', completedFor(tasks, 'once')],
     ['KEEP AN EYE', completedFor(tasks, 'eye')],
   ];
-  const empty = sections.every(([, items]) => items.length === 0);
+  const recurringSections: Array<[string, Task[]]> = (['weekly', 'monthly'] as const).map((list) => [
+    list === 'weekly' ? 'WEEKLY' : 'MONTHLY',
+    tasks
+      .filter((t) => t.list === list && (stats[t.id]?.count ?? 0) > 0)
+      .sort((a, b) => (stats[b.id]?.count ?? 0) - (stats[a.id]?.count ?? 0)),
+  ]);
+  const empty =
+    oneOffSections.every(([, items]) => items.length === 0) &&
+    recurringSections.every(([, items]) => items.length === 0);
 
   return (
     <div className="hist-overlay" onClick={onClose}>
@@ -39,11 +53,12 @@ export default function HistoryDrawer({ tasks, now, onRestore, onClose }: Histor
           <h2>LOG</h2>
           <button className="icon-btn" aria-label="Close log" onClick={onClose}>✕</button>
         </header>
-        <div className="col-hint">COMPLETED ONE-TIME + KEEP AN EYE · ↩ PUTS IT BACK ON THE BOARD</div>
+        <div className="col-hint">COMPLETED TASKS + REPEAT COUNTS · ↩ PUTS ONE-TIME / EYE BACK ON THE BOARD</div>
 
         <div className="hist-body">
           {empty && <div className="empty-slot">NOTHING COMPLETED YET</div>}
-          {sections.map(([label, items]) =>
+
+          {oneOffSections.map(([label, items]) =>
             items.length === 0 ? null : (
               <div key={label}>
                 <div className="sched-group">{label}</div>
@@ -54,6 +69,21 @@ export default function HistoryDrawer({ tasks, now, onRestore, onClose }: Histor
                       {t.completed_period === 'done' ? 'EARLIER' : `✔ ${formatSchedule(t.completed_period!, now)}`}
                     </span>
                     <button className="icon-btn" title="Restore to board" onClick={() => onRestore(t)}>↩</button>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
+          {recurringSections.map(([label, items]) =>
+            items.length === 0 ? null : (
+              <div key={label}>
+                <div className="sched-group">{label}</div>
+                {items.map((t) => (
+                  <div key={t.id} className="hist-row">
+                    <span className="hist-title hist-plain">{t.title}</span>
+                    <span className="time-chip">✔ {stats[t.id]!.count}×</span>
+                    <span className="hist-last">LAST {periodLabel(stats[t.id]!.last, now)}</span>
                   </div>
                 ))}
               </div>

@@ -73,6 +73,17 @@ export function formatSchedule(scheduledAt: string, now: Date): string {
   return `${month} ${day} · ${timePart}`;
 }
 
+// Short label for any stored period key: "W35" for weeks, "AUG" for months,
+// dates/datetimes via formatSchedule.
+export function periodLabel(period: string, now: Date): string {
+  if (/^\d{4}-W\d{2}$/.test(period)) return period.slice(5);
+  if (/^\d{4}-\d{2}$/.test(period)) {
+    const m = Number(period.slice(5));
+    return m >= 1 && m <= 12 ? MONTHS[m - 1] : period;
+  }
+  return formatSchedule(period, now);
+}
+
 export function isOverdue(task: Task, now: Date): boolean {
   return task.scheduled_at !== null && task.scheduled_at < localInputValue(now) && !isDone(task, now);
 }

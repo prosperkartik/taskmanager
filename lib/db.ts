@@ -38,7 +38,55 @@ async function ensureSchema(): Promise<void> {
   `);
   // Migration for rows created before the personal board existed.
   await query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS space TEXT NOT NULL DEFAULT 'work'`);
+  // One row per completion, so recurring tasks (daily/weekly/monthly) keep a
+  // full history and the LOG can show "done N×". Un-completing removes the
+  // latest row again.
+  await query(`
+    CREATE TABLE IF NOT EXISTS completions (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL,
+      period TEXT NOT NULL
+    )
+  `);
+  // Backfill current completion states recorded before this table existed.
+  await query(`
+    INSERT INTO completions (task_id, period)
+    SELECT t.id, t.completed_period FROM tasks t
+    WHERE t.completed_period IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM completions c WHERE c.task_id = t.id AND c.period = t.completed_period)
+  `);
   ensured = true;
+}
+
+export interface CompletionStat {
+  task_id: number;
+  count: number;
+  last_period: string;
+}
+
+export async function completionStats(): Promise<CompletionStat[]> {
+  await ensureSchema();
+  const rows = await query(
+    'SELECT task_id, COUNT(*)::int AS count, MAX(period) AS last_period FROM completions GROUP BY task_id'
+  );
+  return rows as unknown as CompletionStat[];
+}
+
+export async function recordCompletion(taskId: number, period: string): Promise<void> {
+  await ensureSchema();
+  await query(
+    `INSERT INTO completions (task_id, period)
+     SELECT $1, $2 WHERE NOT EXISTS (SELECT 1 FROM completions WHERE task_id = $1 AND period = $2)`,
+    [taskId, period]
+  );
+}
+
+export async function removeLatestCompletion(taskId: number): Promise<void> {
+  await ensureSchema();
+  await query(
+    'DELETE FROM completions WHERE id = (SELECT id FROM completions WHERE task_id = $1 ORDER BY id DESC LIMIT 1)',
+    [taskId]
+  );
 }
 
 const TASK_COLUMNS = 'id, title, list, space, position, scheduled_at, completed_period';
@@ -85,6 +133,7 @@ export async function updateTask(id: number, patch: TaskPatch): Promise<Task> {
 
 export async function deleteTask(id: number): Promise<void> {
   await ensureSchema();
+  await query('DELETE FROM completions WHERE task_id = $1', [id]);
   await query('DELETE FROM tasks WHERE id = $1', [id]);
 }
 

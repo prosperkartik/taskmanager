@@ -1,7 +1,7 @@
 // PATCH /api/tasks/:id — update whitelisted fields. DELETE /api/tasks/:id — remove.
 
 import { NextResponse } from 'next/server';
-import { deleteTask, updateTask, type TaskPatch } from '@/lib/db';
+import { deleteTask, recordCompletion, removeLatestCompletion, updateTask, type TaskPatch } from '@/lib/db';
 import { isListId } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +37,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
   try {
     const task = await updateTask(id, patch);
+    // Keep the completion history in sync with completion-state changes.
+    if ('completed_period' in patch) {
+      if (patch.completed_period) await recordCompletion(id, patch.completed_period);
+      else await removeLatestCompletion(id);
+    }
     return NextResponse.json({ task });
   } catch (err) {
     console.error('[api/tasks PATCH]', { id, patch }, err);
